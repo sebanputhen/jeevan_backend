@@ -6,7 +6,7 @@ const allowedOrigins = [
   "https://titheajce.netlify.app",
   "http://localhost:5000",
   "http://localhost:3000",
-  "https://jeevan-bay.vercel.app/*",
+  "https://jeevan-bay.vercel.app",
 ];
 
 module.exports = allowedOrigins;
