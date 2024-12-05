@@ -13,7 +13,7 @@ async function getTransactionsByYear(req, res) {
   try {
     const familyId = req.params.familyId;
 
-    // Aggregate transactions by year
+    // Aggregate transactions by year based on the 'date' field
     const transactionsByYear = await Transaction.aggregate([
       {
         $match: {
@@ -21,36 +21,36 @@ async function getTransactionsByYear(req, res) {
         },
       },
       {
-        $group: {
-          _id: { $year: { $toDate: "$date" } }, // Extract year from the 'date' field
-          totalAmount: { $sum: "$amountPaid" }, // Sum the amountPaid for each year
-          transactions: { $push: "$$ROOT" }, // Include all transaction details
+        $addFields: {
+          year: { $year: { $toDate: "$date" } }, // Extract the year from the 'date' field
         },
       },
       {
-        $sort: { _id: 1 }, // Sort the years in ascending order
+        $group: {
+          _id: "$year", // Group by year
+          totalAmountPaid: { $sum: "$amountPaid" }, // Calculate total amount paid for each year
+        },
+      },
+      {
+        $sort: { _id: 1 }, // Sort by year in ascending order
       },
     ]);
 
     // Format the response
     const response = transactionsByYear.map((item) => ({
-      year: item._id, // Year
-      totalAmount: item.totalAmount, // Total amount for the year
-      transactions: item.transactions.map((transaction) => ({
-        _id: transaction._id,
-        amountPaid: transaction.amountPaid,
-        date: new Date(transaction.date).toISOString().split("T")[0], // Format date to YYYY-MM-DD
-      })), // List of transactions for the year
+      year: item._id, // The year
+      totalAmountPaid: item.totalAmountPaid, // Total amount for the year
     }));
 
     res.status(200).json(response);
   } catch (err) {
     console.error(err);
     res.status(500).json({
-      message: "An error occurred while fetching transactions grouped by year.",
+      message: "An error occurred while fetching total sum of transactions by year.",
     });
   }
 }
+
 async function calculateYearlyDataTotal(req, res) {
   try {
     // Aggregate data for all years, grouped by year

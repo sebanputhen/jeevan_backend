@@ -37,16 +37,19 @@ const auth = require("./routes/auth");
 const koottayma = require("./routes/koottayma");
 const family = require("./routes/family");
 const person = require("./routes/person");
+const community = require("./routes/community");
 const transaction = require("./routes/transaction");
 const familyRoutes = require("./routes/familyRoutes");
 const parishupload = require("./routes/parishexcel");
 const koottaymaupload = require("./routes/koottaymaexcel");
 const familiesupload = require("./routes/familyexcel");
+const allocationSettings = require("./routes/allocationsettings");
+const fund = require("./routes/fund");
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: true,
-  secure: process.env.NODE_ENV === 'production',
+  cookie: { secure: false }
 }));
 app.use(passport.initialize());
 app.use(passport.session());
@@ -60,12 +63,14 @@ app.use("/parish", parish);
 app.use("/koottayma", koottayma);
 app.use("/family", family);
 app.use("/person", person);
+app.use("/community", community);
 app.use("/transaction", transaction);
 app.use("/families", familyRoutes);
 app.use("/parishup", parishupload);
 app.use("/koottaymaup", koottaymaupload);
 app.use("/familiesup", familiesupload);
-
+app.use("/allocationsettings", allocationSettings);
+app.use("/fund", fund);
 const specs = swaggerJsdoc(options);
 app.use(
   "/api-docs",

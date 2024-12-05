@@ -13,6 +13,12 @@ const {
   getGenderDistribution,
   getPopulationByEducation,
   Education,
+  getPopulationOverview, 
+  getEducationDistribution,
+  getAgeGroupDistribution,
+  getAllEducationCategories,
+  getOccupationDistribution,
+  getAgeGroupDistribution1
 } = require("../controllers/personController");
 
 /**
@@ -201,13 +207,28 @@ router.get("/population", getPopulationSummary);
 router.get("/population/forane/:foraneId", getPopulationSummary);
 router.get("/population/startDate/:foraneId/endDate/:foraneId", getPopulationSummary);
 router.get("/population/forane/:foraneId/startDate/:startDate/endDate/:endDate", getPopulationSummary);*/
+
 router.get('/population', getPopulationSummary);
 router.get('/education', Education);
 router.get('/population/forane/:foraneId', getPopulationSummary);
 router.get('/population/breakdown', getPopulationBreakdown);
-router.get('/population/age-groups', getPopulationByAgeGroups);
+router.get('/person/age-groups', getPopulationByAgeGroups);
 router.get('/population/gender-distribution', getGenderDistribution);
-router.get('/population/education', getPopulationByEducation);
+router.get('/person/education', getPopulationByEducation);
+
+router.get('/education/distribution', getEducationDistribution); 
+router.get('/education/distribution/:foraneId', getEducationDistribution);
+router.get('/occupation/distribution', getOccupationDistribution);
+router.get('/occupation/distribution/:foraneId', getOccupationDistribution);
+
+router.get('/age-groups/distribution', getAgeGroupDistribution1);
+router.get('/age-groups/distribution/:foraneId', getAgeGroupDistribution1);
+
+router.get('/person/age-groups/distribution/:foraneId/:startDate/:endDate', getAgeGroupDistribution);
+router.get('/person/age-groups/distribution/:foraneId', getAgeGroupDistribution);
+router.get('/person/education/categories', getAllEducationCategories);
+router.get('/', getPopulationOverview);
+;
 router.get("/family/:familyid", getAllPersons);
 router.get("/:personid", getOnePerson);
 router.post("/", createNewPerson);
