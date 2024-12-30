@@ -37,7 +37,7 @@ router.get("/koottayma-wise-family-list", async (req, res) => {
 
     res.json(groupedFamilies);
   } catch (err) {
-    console.error("Error fetching families by Koottayma:", err.stack);
+    console.error("Error fetching family by Koottayma:", err.stack);
     res.status(500).send("Server Error");
   }
 });
