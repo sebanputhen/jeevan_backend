@@ -1,7 +1,7 @@
 const Slab = require('../models/Slab');
 const mongoose = require('mongoose');
 
-const slabController = {
+const SlabController = {
   getSlabs: async (req, res) => { 
     try {
       const { year } = req.params;
@@ -42,4 +42,4 @@ const slabController = {
   }
 };
 
-module.exports = slabController;
+module.exports = SlabController;

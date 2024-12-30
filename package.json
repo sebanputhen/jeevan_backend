@@ -7,9 +7,6 @@
     "start": "node app.js",
     "build": "webpack --config webpack.config.js"
   },
-  "engines": {
-    "node": "18.x" 
-  },
   "keywords": [],
   "author": "",
   "license": "ISC",
