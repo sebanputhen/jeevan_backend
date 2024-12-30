@@ -43,8 +43,9 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       city: row["city"]|| null,
       district: row["district"]|| null,
       pincode: row["pincode"]|| null,
-      id: row["id"]|| null,
-      fid: row["fid"]|| null,
+      id: row["fid"]|| null,
+      familyNumber: row["id"]|| null,
+      status: row["status"]|| null,
     }));
 
   

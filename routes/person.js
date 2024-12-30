@@ -3,6 +3,7 @@ const router = express.Router();
 
 const {
   getAllPersons,
+  getStatusHistory,
   getOnePerson,
   createNewPerson,
   updatePerson,
@@ -18,7 +19,7 @@ const {
   getAgeGroupDistribution,
   getAllEducationCategories,
   getOccupationDistribution,
-  getAgeGroupDistribution1
+  getAgeGroupDistribution1,
 } = require("../controllers/personController");
 
 /**
@@ -228,8 +229,9 @@ router.get('/person/age-groups/distribution/:foraneId/:startDate/:endDate', getA
 router.get('/person/age-groups/distribution/:foraneId', getAgeGroupDistribution);
 router.get('/person/education/categories', getAllEducationCategories);
 router.get('/', getPopulationOverview);
-;
+
 router.get("/family/:familyid", getAllPersons);
+router.get('/family/:familyId/status-history', getStatusHistory);
 router.get("/:personid", getOnePerson);
 router.post("/", createNewPerson);
 router.put("/:personid", updatePerson);  

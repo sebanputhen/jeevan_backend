@@ -9,7 +9,7 @@ const Forane = require("../models/Forane");
 async function getAllParishes(req, res) {
   try {
     const parishes = await Parish.find({ forane: req.params.foraneid }).select(
-      "_id name phone building street pincode state district forane"
+      "_id name phone building street pincode state district forane shortCode"
     );
     if (!parishes) {
       res.status(404).json({ message: "No parish found." });
@@ -26,7 +26,7 @@ async function getAllParishes(req, res) {
 async function searchParishes(req, res) {
   try {
     // Fetch all parishes
-    const parishes = await Parish.find({}).select("_id name phone building street pincode state district forane");
+    const parishes = await Parish.find({}).select("_id name phone building street pincode state district forane shortCode");
 
     if (!parishes || parishes.length === 0) {
       return res.status(404).json({ message: "No parishes found." });
@@ -38,14 +38,26 @@ async function searchParishes(req, res) {
     res.status(500).json({ message: "An error occurred while fetching parish data." });
   }
 }
-
+async function getWAllParishes(req, res) {
+  try {
+    const foranes = await Parish.find().select("_id name phone building street pincode state district forane shortCode");
+    if (!foranes) {
+      res.status(404).json({ message: "No parishes found." });
+    } else {
+      res.status(200).json(foranes);
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "An error occurred while fetching forane data." });
+  }
+}
 
 
 async function getOneParish(req, res) {
   try {
     const parish = await Parish.findById(req.params.parishid).populate(
       "forane",
-      "_id name"
+      "_id name shortCode"
     );
     if (!parish) {
       res.status(404).json({ message: "Parish not found." });
@@ -89,7 +101,7 @@ const getMultipleParishes = async (req, res) => {
     const parishes = await Parish.find({
       _id: { $in: validIds }
     }).select(
-      "_id name phone building street pincode state district forane"
+      "_id name phone building street pincode state district forane shortCode"
     );
 
     // Add first 4 letters of parish name to each parish object
@@ -134,6 +146,7 @@ async function createNewParish(req, res) {
     if (!parish) {
       const newparish = new Parish(req.body);
       await newparish.save();
+
       res.status(201).json({ message: "Parish created successfully." });
     } else {
       res.status(409).json({ message: "Parish already exists." });
@@ -143,6 +156,26 @@ async function createNewParish(req, res) {
     res
       .status(500)
       .json({ message: "An error occured while creating parish." });
+  }
+}
+async function generateMissingShortCodes(req, res) {
+  try {
+    const updatedParishes = await Parish.generateMissingShortCodes();
+    
+    res.status(200).json({
+      message: `Generated short codes for ${updatedParishes.length} parishes.`,
+      updatedParishes: updatedParishes.map(parish => ({
+        _id: parish._id,
+        name: parish.name,
+        shortCode: parish.shortCode
+      }))
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ 
+      message: "An error occurred while generating short codes.",
+      error: err.message 
+    });
   }
 }
 
@@ -180,13 +213,48 @@ async function deleteParish(req, res) {
       .json({ message: "An Error Occurred while Deleting Parish" });
   }
 }
+async function getForaneByParish(req, res) {
+  try {
+    console.log('Fetching forane for parish:', req.params.parishId);
 
+    const parish = await Parish.findById(req.params.parishId)
+      .populate('forane', '_id name')
+      .exec();
+    
+    if (!parish) {
+      return res.status(404).json({ message: "Parish not found." });
+    }
+
+    if (!parish.forane) {
+      return res.status(404).json({ message: "Forane not found for this parish." });
+    }
+
+    console.log('Found forane:', parish.forane);
+
+    res.status(200).json({ 
+      forane: parish.forane,
+      parish: {
+        _id: parish._id,
+        name: parish.name
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching forane:', err);
+    res.status(500).json({ 
+      message: "An error occurred while fetching forane data.",
+      error: err.message 
+    });
+  }
+}
 module.exports = {
   getAllParishes,
+  getWAllParishes,
   getOneParish,
   createNewParish,
   updateParish,
   deleteParish,
   searchParishes,
   getMultipleParishes,
+  getForaneByParish,
+  generateMissingShortCodes
 };

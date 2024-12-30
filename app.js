@@ -25,7 +25,7 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cors({
-  origin: ['http://localhost:3000','http://localhost:5173','https://jeevan-bay.vercel.app'], // Replace with your frontend URL
+  origin: ['http://localhost:3000','http://localhost:5173','https://jeevan-bay.vercel.app','http://localhost:3001'], // Replace with your frontend URL
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','HEAD','PATCH'],
 }));
@@ -43,8 +43,17 @@ const familyRoutes = require("./routes/familyRoutes");
 const parishupload = require("./routes/parishexcel");
 const koottaymaupload = require("./routes/koottaymaexcel");
 const familiesupload = require("./routes/familyexcel");
+const personupload = require("./routes/personexcel");
+const transupload = require("./routes/transexcel");
 const allocationSettings = require("./routes/allocationsettings");
+const communitySettings=require("./routes/communitysetting");
+const slab=require("./routes/slabRoutes");
 const fund = require("./routes/fund");
+const projects = require("./routes/ProjectsRouter");
+const projectSettingsRoutes = require("./routes/projectSettingsRoutes");
+const parishdata = require("./routes/parishData");
+const familymovements  = require("./routes/familyMovement");
+const personmovements  = require("./routes/personMovementRoutes");
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
@@ -52,7 +61,7 @@ app.use(session({
   cookie: { secure: false }
 }));
 app.use(passport.initialize());
-app.use(passport.session());
+app.use(passport.session()); 
 
 app.get("/", (req, res) => {
   res.status(200);
@@ -69,8 +78,16 @@ app.use("/families", familyRoutes);
 app.use("/parishup", parishupload);
 app.use("/koottaymaup", koottaymaupload);
 app.use("/familiesup", familiesupload);
+app.use("/personup", personupload);
+app.use("/transup", transupload);
 app.use("/allocationsettings", allocationSettings);
+app.use('/community-settings', communitySettings);
+app.use('/slabs', slab);
 app.use("/fund", fund);
+app.use("/parishdata", parishdata);
+app.use('/project-settings', projectSettingsRoutes);
+app.use('/family-movements', familymovements);
+app.use('/person-movements', personmovements);
 const specs = swaggerJsdoc(options);
 app.use(
   "/api-docs",

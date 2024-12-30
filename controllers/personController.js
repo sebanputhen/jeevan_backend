@@ -3,12 +3,12 @@ const Person = require("../models/Person");
 
 async function getAllPersons(req, res) {
   try {
-    const family = await Family.findOne({ id: req.params.familyid }).exec();
+    const family = await Family.findOne({ id: req.params.familyid,status: 'active'}).exec();
     if (!family) {
       return res.status(404).json({ message: "Family not found." });
     }
-    const persons = await Person.find({ family: req.params.familyid })
-      .select("_id name relation gender education dob occupation")
+    const persons = await Person.find({ family: req.params.familyid,status: 'active' })
+      .select("_id name baptismName relation gender education dob occupation status")
       .exec();
     if (!persons) {
       return res.status(404).json({ message: "No persons found." });
@@ -23,7 +23,24 @@ async function getAllPersons(req, res) {
   }
 }
 
+async function getStatusHistory(req, res) {
+  try {
+    const familyId = req.params.familyId;
+    
+    // Find persons with moved_out or deceased status
+    const persons = await Person.find({
+      family: familyId,
+      status: { $in: ['moved_out', 'deceased'] }
+    })
+    .select('name baptismName relation status moveOutDate narration')
+    .sort({ moveOutDate: -1 });
 
+    res.json(persons);
+  } catch (error) {
+    console.error('Error fetching status history:', error);
+    res.status(500).json({ message: 'Failed to fetch status history' });
+  }
+}
 const mongoose = require("mongoose");
 
 async function getOnePerson(req, res) {
@@ -825,6 +842,7 @@ async function getAllEducationCategories(req, res) {
     res.status(500).json({ message: "Error fetching education categories" });
   }
 };
+
 async function createNewPerson(req, res) {
   try {
     const person = await Person.findOne({
@@ -978,6 +996,7 @@ async function deletePerson(req, res) {
 
 module.exports = {
   getAllPersons,
+  getStatusHistory,
   getOnePerson,
   createNewPerson,
   updatePerson,
@@ -993,5 +1012,5 @@ module.exports = {
   getAgeGroupDistribution,
   getAllEducationCategories,
   getOccupationDistribution,
-  getAgeGroupDistribution1,
+  getAgeGroupDistribution1
 };

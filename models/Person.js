@@ -1,54 +1,112 @@
 const mongoose = require("mongoose");
-const { parse, format, isAfter } = require("date-fns");
+const { parse, format, isAfter, parseISO } = require("date-fns");
+
+function convertToDate(input) {
+  // Handle null or undefined
+  if (input == null) return null;
+
+  // If already a Date object, return it
+  if (input instanceof Date) return input;
+
+  // Handle Excel date serial number
+  if (typeof input === 'number') {
+    // Excel date serial number starts from 1900-01-01
+    const excelEpoch = new Date(1900, 0, 1);
+    const millisecondsSinceEpoch = (input - 1) * 24 * 60 * 60 * 1000;
+    return new Date(excelEpoch.getTime() + millisecondsSinceEpoch);
+  }
+
+  // Handle string inputs
+  if (typeof input === 'string') {
+    // Try parsing with different formats
+    const formats = [
+      'dd/MM/yyyy',   // Standard input format
+      'yyyy-MM-dd',   // ISO format
+      'MM/dd/yyyy',   // US format
+      'dd-MM-yyyy',   // Alternative format
+    ];
+
+    for (const fmt of formats) {
+      try {
+        const parsedDate = parse(input, fmt, new Date());
+        if (!isNaN(parsedDate.getTime())) {
+          return parsedDate;
+        }
+      } catch (error) {
+        // Continue to next format if parsing fails
+        continue;
+      }
+    }
+
+    // Try ISO parsing as a last resort
+    try {
+      const isoDate = parseISO(input);
+      if (!isNaN(isoDate.getTime())) {
+        return isoDate;
+      }
+    } catch (error) {
+      // Ignore parsing error
+    }
+  }
+
+  // If all parsing methods fail, return null
+  return null;
+}
 
 const personSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: true,
+      required: false,
     },
     baptismName: {
       type: String,
-      required: true,
+      required: false,
     },
     gender: {
       type: String,
-      required: true,
+      required: false,
       enum: ["male", "female"],
     },
     dob: {
       type: Date,
-      required: true,
+      required: false,
       validate: {
         validator: function (value) {
-          return !isAfter(value, new Date());
+          // Only validate if a date is provided
+          return value ? !isAfter(value, new Date()) : true;
         },
         message: "Date of birth cannot be after today.",
       },
       set: function (value) {
-        return parse(value, "dd/MM/yyyy", new Date());
+        // Convert input to Date object
+        return convertToDate(value);
       },
       get: function (value) {
+        // Format date for display
         return value ? format(value, "dd/MM/yyyy") : null;
       },
     },
     phone: {
       type: String,
-      maxlength: 13,
-      minlength: 10,
-      unique: true,
+      // maxlength: 13,
+      // minlength: 10,
+      // unique: false,
+      sparse: true,
+      required: false,
     },
     email: {
       type: String,
-      unique: true,
+      unique: false,
+      required: false,
     },
     education: {
       type: String,
-      required: true,
+      required: false,
     },
     occupation: {
       type: String,
-      required: true,
+      required: false,
     },
     forane: {
       type: mongoose.Schema.Types.ObjectId,
@@ -71,7 +129,7 @@ const personSchema = new mongoose.Schema(
     },
     relation: {
       type: String,
-      required: true,
+      required: false,
       enum: [
         "head",
         "wife",
@@ -90,8 +148,21 @@ const personSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["alive", "deceased"],
-      default: "alive",
+      required: true,
+      enum: ['active', 'inactive', 'moved_out', 'deceased'],
+      default: 'active'
+    },
+    narration: {
+      type: String,
+      default: ''
+    },
+    Pname: {
+      type: String,
+      default: ''
+    },
+    pid: {
+      type: Number,
+      default: ''
     },
   },
   {
@@ -165,6 +236,10 @@ personSchema.post("save", async function (doc, next) {
   }
   next();
 });
+personSchema.methods.validateAndConvertDate = function(dateInput) {
+  this.dob = convertToDate(dateInput);
+  return this.dob;
+};
 
 const Person = mongoose.model("Person", personSchema);
 module.exports = Person;

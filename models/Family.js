@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const familySchema = new mongoose.Schema(
   {
     id: {
-      type: String,
+      type: Number,
       required: true,
       unique: true,
     },
@@ -13,7 +13,7 @@ const familySchema = new mongoose.Schema(
     },
     building: {
       type: String,
-      required: true,
+      required: false,
     },
     forane: {
       type: mongoose.Schema.Types.ObjectId,
@@ -37,23 +37,31 @@ const familySchema = new mongoose.Schema(
     },
     phone: {
       type: String,
-      required: true,
+      required: false,
     },
     street: {
       type: String,
-      required: true,
+      required: false,
     },
     city: {
       type: String,
-      required: true,
+      required: false,
     },
     district: {
       type: String,
-      required: true,
+      required: false,
     },
     pincode: {
       type: String,
+      required: false,
+    },
+    status: {
+      type: String,
       required: true,
+    },
+    Narration: {
+      type: String,
+      required: false,
     },
     familyNumber: { type: Number, required: true }, 
   },

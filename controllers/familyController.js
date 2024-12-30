@@ -5,7 +5,7 @@ const Koottayma = require("../models/Koottayma");
 async function getAllFamilies(req, res) {
   try {
     const families = await Family.find({ koottayma: req.params.koottaymaid })
-      .select("_id id name head building phone pincode street city district")
+      .select("_id id name head building phone pincode street city district koottayma familyNumber")
       .populate("head", "_id name")
       .exec();
     if (!families) {
@@ -20,6 +20,25 @@ async function getAllFamilies(req, res) {
       .json({ message: "An error occurred while fetching family data." });
   }
 }
+async function getAllParFamilies(req, res) {
+  try {
+   const families = await Family.find({ parish: req.params.parishId })
+      .select("_id id name head building phone pincode street city district koottayma familyNumber")
+      .populate("head", "_id name")
+      .exec();
+    if (!families) {
+      res.status(404).json({ message: "No families found." });
+    } else {
+      res.status(200).json(families); 
+    }
+  } catch (err) {
+    console.error(err);
+    res
+      .status(500)
+      .json({ message: "An error occurred while fetching family data." });
+  }
+}
+
 
 async function getOneFamily(req, res) {
   try {
@@ -61,10 +80,20 @@ async function createNewFamily(req, res) {
     console.log('Fetched parish:', parish);
 
     // Extract the first 4 letters of the parish name
-    const parishPrefix = parish.name.slice(0, 4).toUpperCase(); 
+    //const parishPrefix = parish.name.slice(0, 4).toUpperCase(); 
 
     // Step 3: Find the largest familyNumber for the same parish
-    const lastFamily = await Family.find({ parish: parishId })
+    const lastpFamily = await Family.find({ parish: parishId })
+      .sort({ familyNumber: -1 })  // Sort by familyNumber in descending order
+      .limit(1); // Get the family with the largest familyNumber
+
+    let familypNumber = 1; // Default to 1 if no families are found
+
+    if (lastpFamily.length > 0) {
+      familypNumber = lastpFamily[0].familypNumber + 1; // Increment the family number by 1
+    }
+
+    const lastFamily = await Family.find({ })
       .sort({ familyNumber: -1 })  // Sort by familyNumber in descending order
       .limit(1); // Get the family with the largest familyNumber
 
@@ -75,7 +104,7 @@ async function createNewFamily(req, res) {
     }
 
     // Step 4: Generate the new family ID using the parish prefix and incremented family number
-    const familyId = `${parishPrefix}${familyNumber.toString().padStart(3, '0')}`;
+    const familyId = `${familyNumber}`;
     console.log("Generated family ID:", familyId);
 
     // Step 5: Check if the family already exists with this familyId
@@ -85,7 +114,7 @@ async function createNewFamily(req, res) {
     }
 
     // Step 6: Create the new family object
-    const newFamily = new Family({ ...req.body, id: familyId, familyNumber: familyNumber });
+    const newFamily = new Family({ ...req.body, id: familyId, familyNumber: familypNumber });
 
     // If head of family is specified
     if (req.body.head) {
@@ -213,6 +242,7 @@ async function getFamiliesByKoottayma(req, res) {
 module.exports = {
   getFamiliesByKoottayma,
   getAllFamilies,
+  getAllParFamilies,
   getOneFamily,
   createNewFamily,
   updateFamily,

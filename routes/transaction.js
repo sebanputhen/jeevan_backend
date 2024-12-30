@@ -13,6 +13,9 @@ const {
   calculateYearlyData,
   calculateYearlyDataByForane,
   calculateYearlyDataTotal,
+  getPersonByYear,
+  getAllPersonTransactions,
+  transferTransaction,
 } = require("../controllers/transactionController");
 
 /**
@@ -165,10 +168,12 @@ router.get("/family/:familyid", calculateFamilyTotal);
 router.get("/person/:personid", calculatePersonTotal);
 router.get("/latest/person/:personid", getLatestTransaction);
 router.post("/", createNewTransaction);
-router.put("/:transactionid", updateTransaction);
+router.put("/transactionId/:transactionId", updateTransaction);
 router.get("/year/:familyId", getTransactionsByYear);  
+router.get("/person/:personid/year/:year", getPersonByYear);
 router.get("/yearlyData/:year", calculateYearlyData);
 router.get("/yearly/:year/forane/:foraneId", calculateYearlyDataByForane);
 router.get("/yearlytotal/", calculateYearlyDataTotal);
-
+router.get('/person/:personId/all', getAllPersonTransactions);
+router.post('/transfer', transferTransaction);
 module.exports = router;

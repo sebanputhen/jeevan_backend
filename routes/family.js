@@ -2,6 +2,7 @@ const express = require("express");const router = express.Router();
 
 const {
   getAllFamilies,
+  getAllParFamilies,
   getOneFamily,
   createNewFamily,
   updateFamily,
@@ -173,6 +174,7 @@ const {
  */
 
 router.get("/kottayma/:koottaymaid", getAllFamilies);
+router.get("/parish/:parishId", getAllParFamilies);
 router.get("/:familyid", getOneFamily);
 router.post("/", createNewFamily);
 router.put("/:familyid", updateFamily);

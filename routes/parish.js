@@ -1,12 +1,15 @@
 const express = require("express");const router = express.Router();
 const {
   getAllParishes,
+  getWAllParishes,
   getOneParish,
   createNewParish,
   updateParish,
   deleteParish,
   searchParishes,  
   getMultipleParishes,
+  getForaneByParish,
+  generateMissingShortCodes,
 } = require("../controllers/parishController");
 
 /**
@@ -162,6 +165,7 @@ const {
  *         description: Invalid request body
  * 
  */
+router.get("/", getWAllParishes);
 router.get("/search", searchParishes);
 router.get("/m/:parishid", getMultipleParishes);
 router.get("/forane/:foraneid", getAllParishes);
@@ -169,5 +173,6 @@ router.get("/:parishid", getOneParish);
 router.post("/", createNewParish);
 router.put("/:parishid", updateParish);
 router.delete("/:parishid", deleteParish);
-
+router.get('/getforane/:parishId', getForaneByParish);
+router.post('/generate-short-codes', generateMissingShortCodes);
 module.exports = router;

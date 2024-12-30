@@ -309,23 +309,140 @@ async function calculatePersonTotal(req, res) {
     });
   }
 }
+async function getPersonByYear(req, res) {
+  try {
+    const { personid, year } = req.params;
+    // Find all transactions for the person in the specific year
+    const transactions = await Transaction.find({ 
+      person: personid, 
+      date: { 
+        $gte: new Date(`${year}-01-01`), 
+        $lte: new Date(`${year}-12-31`) 
+      }
+    });
+    
+    // Calculate total amount for the year
+    const totalAmount = transactions.reduce((sum, transaction) => sum + transaction.amountPaid, 0);
+    
+    res.status(200).json({ 
+      transactions, 
+      totalAmount 
+    });
+  } catch (error) {
+    res.status(500).json({ error: "An error occurred while fetching transactions by year." });
+  }
+}
+async function getAllPersonTransactions(req, res) {
+  try {
+    const transactions = await Transaction.find({
+      person: req.params.personId
+    }).sort({ date: -1 });
 
+    res.json({
+      transactions,
+      count: transactions.length
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching transactions" });
+  }
+}
+async function transferTransaction(req, res) {
+  try {
+    const {
+      fromPerson,
+      toPerson,
+      forane,
+      parish,
+      family,
+      status,
+      reason,
+      amount,
+      date
+    } = req.body;
+
+    // Find existing transaction
+    const existingTransaction = await Transaction.findOne({
+      person: fromPerson,
+      date: {
+        $gte: new Date(new Date().getFullYear(), 0, 1),
+        $lte: new Date(new Date().getFullYear(), 11, 31)
+      }
+    });
+
+    if (!existingTransaction) {
+      // Create new transaction for head if no existing transaction
+      const newTransaction = new Transaction({
+        forane,
+        parish,
+        family,
+        person: toPerson,
+        amountPaid: amount,
+        date,
+        originalPerson: fromPerson,
+        isTransferred: true,
+        transferReason: reason,
+        transferDate: new Date(),
+        status: 'transferred',
+        transferHistory: [{
+          fromPerson,
+          toPerson,
+          reason,
+          status,
+          transferDate: new Date()
+        }]
+      });
+
+      await newTransaction.save();
+      return res.json({
+        message: 'New transaction created for head',
+        transaction: newTransaction
+      });
+    }
+
+    // If existing transaction, transfer it
+    existingTransaction.person = toPerson;
+    existingTransaction.isTransferred = true;
+    existingTransaction.transferReason = reason;
+    existingTransaction.transferDate = new Date();
+    existingTransaction.status = 'transferred';
+    existingTransaction.transferHistory.push({
+      fromPerson,
+      toPerson,
+      reason,
+      status,
+      transferDate: new Date()
+    });
+
+    await existingTransaction.save();
+
+    res.json({
+      message: 'Transaction transferred successfully',
+      transaction: existingTransaction
+    });
+
+  } catch (error) {
+    console.error('Transfer error:', error);
+    res.status(500).json({
+      message: error.message || 'Failed to transfer transaction'
+    });
+  }
+}
 async function updateTransaction(req, res) {
   try {
     const transaction = await Transaction.findByIdAndUpdate(
-      req.params.transactionid,
-      req.body
+      req.params.transactionId,
+      req.body,
+      { new: true }
     );
+    
     if (!transaction) {
-      res.status(404).json({ message: "Transaction not found." });
-    } else {
-      res.status(200).json({ message: "Transaction updated successfully." });
+      return res.status(404).json({ message: "Transaction not found." });
     }
+    
+    res.status(200).json(transaction);
   } catch (err) {
     console.error(err);
-    res.status(500).json({
-      message: "An error occured while updating transaction.",
-    });
+    res.status(500).json({ message: "Error updating transaction." });
   }
 }
 
@@ -341,4 +458,7 @@ module.exports = {
   calculateYearlyData,
   calculateYearlyDataByForane,
   calculateYearlyDataTotal,
+  getPersonByYear,
+  getAllPersonTransactions,
+  transferTransaction,
 };
