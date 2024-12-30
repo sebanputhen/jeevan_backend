@@ -2,7 +2,7 @@ const Slab = require('../models/Slab');
 const mongoose = require('mongoose');
 
 const slabController = {
-  getSlabs: async (req, res) => {
+  getSlabs: async (req, res) => { 
     try {
       const { year } = req.params;
       const slabs = await Slab.find({ year: parseInt(year) }).sort({ minValue: 1 });
