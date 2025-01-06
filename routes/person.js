@@ -3,6 +3,7 @@ const router = express.Router();
 
 const {
   getAllPersons,
+  getAllPersons1,
   getStatusHistory,
   getOnePerson,
   createNewPerson,
@@ -231,6 +232,8 @@ router.get('/person/education/categories', getAllEducationCategories);
 router.get('/', getPopulationOverview);
 
 router.get("/family/:familyid", getAllPersons);
+router.get('/persons/families/:familyIds', getAllPersons1);
+router.get('/persons/families', getAllPersons1);
 router.get('/family/:familyId/status-history', getStatusHistory);
 router.get("/:personid", getOnePerson);
 router.post("/", createNewPerson);

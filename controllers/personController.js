@@ -23,6 +23,143 @@ async function getAllPersons(req, res) {
   }
 }
 
+async function getAllPersons1(req, res) {
+  try {
+    // Extract family IDs from request
+    const rawIds = req.params.familyIds || req.query.familyIds || '';
+
+    // Parse and validate input family IDs
+    const idStrings = String(rawIds)
+      .split(',')  // Split strictly by comma
+      .map(id => id.trim())
+      .filter(Boolean);
+
+    // Log raw input for debugging
+    console.log('Raw Family IDs:', {
+      rawIds,
+      idStrings
+    });
+
+    // Validate IDs - ensure they are numeric
+    const validIds = idStrings.filter(id => {
+      const numId = Number(id);
+      return !isNaN(numId) && numId > 0;
+    });
+
+    // Check if any valid IDs exist
+    if (validIds.length === 0) {
+      return res.status(400).json({
+        message: "No valid Family IDs provided.",
+        receivedRawIds: rawIds
+      });
+    }
+
+    console.log('Validated Family IDs:', validIds);
+
+    // Fetch persons for multiple families with multiple query conditions
+    const persons = await Person.find({
+      $or: [
+        { familyId: { $in: validIds } },
+        { family: { $in: validIds } },
+        { 'family.id': { $in: validIds } }
+      ],
+      status: 'active'
+    })
+    .select("_id name baptismName relation gender education dob occupation status family")
+    .lean();
+
+    console.log('Persons Found:', {
+      totalPersons: persons.length,
+      familyIdsWithPersons: [...new Set(persons.map(p => p.family))]
+    });
+
+    // Group persons by family with fallback handling
+    const personsByFamily = persons.reduce((acc, person) => {
+      // Try multiple ways to get family ID
+      const familyId = 
+        person.family || 
+        person.family || 
+        (person.family && person.family.id);
+
+      if (familyId) {
+        const key = String(familyId);
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(person);
+      }
+      return acc;
+    }, {});
+
+    // Identify families with no persons
+    const foundFamilyIds = Object.keys(personsByFamily);
+    const missingFamilyIds = validIds.filter(
+      id => !foundFamilyIds.includes(String(id))
+    );
+
+    // Additional debugging
+    console.log('Persons By Family:', {
+      familyCount: Object.keys(personsByFamily).length,
+      missingFamilyIds: missingFamilyIds
+    });
+
+    return res.status(200).json({
+      message: "Persons retrieved successfully",
+      persons: persons,
+      personsByFamily: personsByFamily,
+      missingFamilyIds: missingFamilyIds,
+      totalRequested: validIds.length,
+      totalFoundPersons: persons.length
+    });
+
+  } catch (error) {
+    // Comprehensive error logging
+    console.error("Critical Error in getAllPersons:", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+      requestParams: req.params,
+      requestQuery: req.query
+    });
+
+    // Detailed error response
+    return res.status(500).json({
+      message: "Internal server error while fetching persons",
+      error: error.message,
+      details: "Unable to process the request",
+      requestData: {
+        familyIds: req.params.familyIds,
+        queryIds: req.query.familyIds
+      }
+    });
+  }
+};
+
+
+// Helper function to calculate age
+function calculateAge(dob) {
+  if (!dob) return null;
+  
+  const birthDate = new Date(dob);
+  const today = new Date();
+  
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  
+  return age;
+}
+// Helper function to get name initials
+function getNameInitials(name) {
+  if (!name) return '';
+  return name
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase())
+    .join('');
+}
 async function getStatusHistory(req, res) {
   try {
     const familyId = req.params.familyId;
@@ -996,12 +1133,13 @@ async function deletePerson(req, res) {
 
 module.exports = {
   getAllPersons,
+  getAllPersons1,
   getStatusHistory,
   getOnePerson,
   createNewPerson,
   updatePerson,
   deletePerson,
-  getPopulationSummary,
+  getPopulationSummary, 
   getGenderDistribution,
   getPopulationByAgeGroups,
   getPopulationBreakdown,
