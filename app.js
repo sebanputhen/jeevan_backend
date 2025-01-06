@@ -28,7 +28,9 @@ app.use(cors({
   origin: ['http://localhost:3000','http://localhost:5173','https://jeevan-bay.vercel.app','http://localhost:3001'], // Replace with your frontend URL
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','HEAD','PATCH'],
-}));
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));  
+
 //app.use(cors(corsOptions));
 
 const forane = require("./routes/forane");
