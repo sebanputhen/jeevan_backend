@@ -25,7 +25,7 @@ app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cors({
-  origin: ['http://localhost:3000','http://localhost:5173','http://localhost:3001'], // Replace with your frontend URL
+  origin: ['http://localhost:3000','http://localhost:5173','https://jeevan-bay.vercel.app','http://localhost:3001'], // Replace with your frontend URL
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','HEAD','PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
