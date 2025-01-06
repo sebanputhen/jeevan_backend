@@ -117,3 +117,4 @@ mongoose.connection.on("error", (err) => {
     "mongoErrLog.log"
   );
 });
+module.exports = app;
