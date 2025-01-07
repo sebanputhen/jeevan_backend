@@ -57,7 +57,7 @@ const parishdata = require("./routes/parishData");
 const familymovements  = require("./routes/familyMovement");
 const personmovements  = require("./routes/personMovementRoutes");
 app.use(session({
-  secret: process.env.SESSION_SECRET,
+  secret: process.env.SESSION_SECRET || 'fallback_secret_key',
   resave: false,
   saveUninitialized: true,
   cookie: { secure: false }, 
