@@ -56,6 +56,13 @@ const projectSettingsRoutes = require("./routes/projectSettingsRoutes");
 const parishdata = require("./routes/parishData");
 const familymovements  = require("./routes/familyMovement");
 const personmovements  = require("./routes/personMovementRoutes");
+const parishallocations  = require("./routes/parishAllocation");
+const totlalloc  = require("./routes/totalAmountRoutes");
+const transactionRoutes  = require("./routes/transactionRoutes");
+
+const balance  = require("./routes/balanceRoutes");
+
+
 app.use(session({
   secret: process.env.SESSION_SECRET || 'fallback_secret_key',
   resave: false,
@@ -91,6 +98,10 @@ app.use("/parishdata", parishdata);
 app.use('/project-settings', projectSettingsRoutes);
 app.use('/family-movements', familymovements);
 app.use('/person-movements', personmovements);
+app.use('/parish-allocations', parishallocations);
+app.use('/totlalloc', totlalloc);
+app.use('/transactionRoutes', transactionRoutes); 
+app.use('/balance', balance)
 const specs = swaggerJsdoc(options);
 app.use(
   "/api-docs",

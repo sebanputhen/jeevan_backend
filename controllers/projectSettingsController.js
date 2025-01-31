@@ -1,6 +1,7 @@
 const ProjectSettings = require('../models/ProjectSettings');
 const TotalAmount = require('../models/TotalAmount');
-
+const BalanceSheet = require('../models/BalanceSheet');
+const mongoose = require('mongoose');
 const projectSettingsController = {
   // Get all project settings for a specific year
   getAll: async (req, res) => {
@@ -66,62 +67,61 @@ const projectSettingsController = {
     }
   },
 
-  // Save bulk project settings
+
   saveBulkSettings: async (req, res) => {
     try {
       const { settings, total_amount, year } = req.body;
-
-      if (!settings || !Array.isArray(settings) || settings.length === 0) {
+  
+      if (!settings?.length) {
         throw new Error('Invalid settings data');
       }
-
-      const totalPercentage = settings.reduce((acc, curr) => acc + Number(curr.percentage), 0);
-      const totalAllocated = settings.reduce((acc, curr) => acc + Number(curr.allocated_amount), 0);
-
-      if (totalPercentage > 100) {
-        throw new Error('Total percentage cannot exceed 100%');
-      }
-
-      if (totalAllocated > total_amount) {
-        throw new Error('Total allocated amount cannot exceed total amount');
-      }
-
-      // Format the settings data
+  
       const formattedSettings = settings.map(setting => ({
         project_id: setting.project_id,
         project_name: setting.project_name,
-        percentage: Number(Number(setting.percentage).toFixed(2)),
-        allocated_amount: Number(Number(setting.allocated_amount).toFixed(2)),        
+        percentage: Number(setting.percentage),
+        allocated_amount: Number(setting.allocated_amount),
         year
       }));
-
-      // Update total amount record
-      await TotalAmount.findOneAndUpdate(
-        { year },
-        {
-          total_amount: Number(total_amount),
-          total_allocated: Number(totalAllocated.toFixed(2))
-        },
-        { upsert: true }
-      );
-
-      // Delete existing settings and save new ones
+  
       await ProjectSettings.deleteMany({ year });
       const savedSettings = await ProjectSettings.insertMany(formattedSettings);
-
+  
+      for (const setting of formattedSettings) {
+        const existingBalance = await BalanceSheet.findOne({
+          year,
+          entity_type: 'project',
+          entity_id: setting.project_id
+        });
+  
+        await BalanceSheet.findOneAndUpdate(
+          {
+            year,
+            entity_type: 'project',
+            entity_id: setting.project_id
+          },
+          {
+            $set: {
+              opening_balance: existingBalance?.opening_balance || 0,
+              allocated_amount: setting.allocated_amount,
+              total_transactions: existingBalance?.total_transactions || 0
+            }
+          },
+          { upsert: true, new: true }
+        );
+      }
+  
       res.status(201).json({
         message: 'Settings saved successfully',
-        data: {
-          total_amount: Number(total_amount),
-          total_allocated: Number(totalAllocated.toFixed(2)),
-          settings: savedSettings
-        }
+        settings: savedSettings
       });
     } catch (error) {
       console.error('Error in saveBulkSettings:', error);
       res.status(400).json({ message: error.message });
     }
   },
+
+
 
   // Update a single project setting
   updateSetting: async (req, res) => {

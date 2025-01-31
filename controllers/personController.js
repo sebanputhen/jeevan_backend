@@ -65,7 +65,7 @@ async function getAllPersons1(req, res) {
       ],
       status: 'active'
     })
-    .select("_id name baptismName relation gender education dob occupation status family")
+    .select("_id name baptismName relation gender education dob occupation status family forane")
     .lean();
 
     console.log('Persons Found:', {

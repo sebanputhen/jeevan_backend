@@ -112,8 +112,8 @@ transactionSchema.pre("save", async function (next) {
       .findOne({
         person: personId,
         date: {
-          $gte: new Date(`${year}-01-01`),
-          $lte: new Date(`${year}-12-31`),
+          $gte: new Date(`${year}-04-01`),
+          $lte: new Date(`${year+1}-03-31`),
         },
         status: 'active'
       });

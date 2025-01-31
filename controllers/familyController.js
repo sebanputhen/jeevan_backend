@@ -5,7 +5,7 @@ const Koottayma = require("../models/Koottayma");
 async function getAllFamilies(req, res) {
   try {
     const families = await Family.find({ koottayma: req.params.koottaymaid })
-      .select("_id id name head building phone pincode street city district koottayma familyNumber")
+      .select("_id id name head building phone pincode street city district koottayma familyNumber forane")
       .populate("head", "_id name")
       .exec();
     if (!families) {
@@ -23,7 +23,7 @@ async function getAllFamilies(req, res) {
 async function getAllParFamilies(req, res) {
   try {
    const families = await Family.find({ parish: req.params.parishId })
-      .select("_id id name head building phone pincode street city district koottayma familyNumber")
+      .select("_id id name head building phone pincode street city district koottayma familyNumber forane")
       .populate("head", "_id name")
       .exec();
     if (!families) {

@@ -76,29 +76,41 @@ const communitySettingsController = {
         total_amount, 
         year,
         parishPercentage,
-        parishAmount,
-        otherProjectsPercentage,
-        otherProjectsAmount
+        otherProjectsPercentage
       } = req.body;
-
+  
       if (!settings || !Array.isArray(settings) || settings.length === 0) {
         throw new Error('Invalid settings data');
       }
-
+  
       const totalPercentage = settings.reduce((acc, curr) => acc + Number(curr.percentage), 0);
       const totalAllocated = settings.reduce((acc, curr) => acc + Number(curr.allocated_amount), 0);
-
+  
       if (totalPercentage > 100) {
         throw new Error('Total percentage cannot exceed 100%');
       }
-
+  
       if (totalAllocated > total_amount) {
         throw new Error('Total allocated amount cannot exceed total amount');
       }
-
+  
       const balanceAfterCommunity = Number(total_amount) - Number(totalAllocated.toFixed(2));
-
-      // Format the settings data
+  
+      // Get existing values
+      const existingTotals = await TotalAmount.findOne({ year }).lean();
+      
+      // Calculate parish and other project amounts
+      const finalParishPercentage = parishPercentage ? Number(parishPercentage) : existingTotals?.parish_percentage || 0;
+      const finalOtherProjectsPercentage = otherProjectsPercentage ? Number(otherProjectsPercentage) : existingTotals?.other_projects_percentage || 100;
+  
+      let parishAmount = 0;
+      let otherProjectsAmount = 0;
+  
+      if (finalParishPercentage > 0) {
+        parishAmount = Number((balanceAfterCommunity * finalParishPercentage / 100).toFixed(2));
+        otherProjectsAmount = Number((balanceAfterCommunity * finalOtherProjectsPercentage / 100).toFixed(2));
+      }
+  
       const formattedSettings = settings.map(setting => ({
         community_id: setting.community_id,
         community_name: setting.community_name,
@@ -106,38 +118,33 @@ const communitySettingsController = {
         allocated_amount: Number(Number(setting.allocated_amount).toFixed(2)),
         year
       }));
-
-      // Update total amounts
+  
       const totalAmountData = {
         total_amount: Number(total_amount),
         total_allocated: Number(totalAllocated.toFixed(2)),
         balance_after_community: balanceAfterCommunity,
-        parish_percentage: Number(parishPercentage || 0),
-        parish_amount: Number(parishAmount || 0),
-        other_projects_percentage: Number(otherProjectsPercentage || 0),
-        other_projects_amount: Number(otherProjectsAmount || 0),
+        parish_percentage: finalParishPercentage,
+        parish_amount: parishAmount,
+        other_projects_percentage: finalOtherProjectsPercentage,
+        other_projects_amount: otherProjectsAmount,
+        total_pre_proportional: existingTotals?.total_pre_proportional || 0,
+        proportional_share_percentage: existingTotals?.proportional_share_percentage || 0,
+        total_parish_allocation: existingTotals?.total_parish_allocation || 0,
         year
       };
-
-      // Perform updates sequentially
-      await TotalAmount.findOneAndUpdate(
+  
+      const updatedTotalAmount = await TotalAmount.findOneAndUpdate(
         { year },
         totalAmountData,
-        { upsert: true, new: true }
+        { upsert: true, new: true, runValidators: true }
       );
-
+  
       await CommunitySettings.deleteMany({ year });
       const savedSettings = await CommunitySettings.insertMany(formattedSettings);
-
+  
       res.status(201).json({
         message: 'Settings saved successfully',
-        total_amount: Number(total_amount),
-        total_allocated: Number(totalAllocated.toFixed(2)),
-        balance_after_community: balanceAfterCommunity,
-        parish_percentage: Number(parishPercentage || 0),
-        parish_amount: Number(parishAmount || 0),
-        other_projects_percentage: Number(otherProjectsPercentage || 0),
-        other_projects_amount: Number(otherProjectsAmount || 0),
+        ...updatedTotalAmount.toObject(),
         settings: savedSettings
       });
     } catch (error) {
@@ -145,7 +152,6 @@ const communitySettingsController = {
       res.status(400).json({ message: error.message });
     }
   },
-
   // New method for parish allocation
   getParishAllocation: async (req, res) => {
     try {

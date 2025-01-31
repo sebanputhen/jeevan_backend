@@ -16,6 +16,9 @@ const {
   getPersonByYear,
   getAllPersonTransactions,
   transferTransaction,
+  calculateTranParishTotal,
+  getKoottaymaWiseTitheInfo,
+  getConsolidatedTitheByKoottayma,
 } = require("../controllers/transactionController");
 
 /**
@@ -176,4 +179,7 @@ router.get("/yearly/:year/forane/:foraneId", calculateYearlyDataByForane);
 router.get("/yearlytotal/", calculateYearlyDataTotal);
 router.get('/person/:personId/all', getAllPersonTransactions);
 router.post('/transfer', transferTransaction);
+router.get('/parish/all-with-transactions/year/:year', calculateTranParishTotal);
+router.get('/tithe-info/:parishId', getKoottaymaWiseTitheInfo);
+router.get('/consolidated-tithe/:parishId', getConsolidatedTitheByKoottayma);
 module.exports = router;

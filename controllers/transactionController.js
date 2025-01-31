@@ -1,5 +1,8 @@
 const Transaction = require("../models/Transaction");
 const Person = require("../models/Person");
+const Parish = require("../models/Parish");
+const Families = require("../models/Family");
+const koottaymas = require("../models/Koottayma");
 const mongoose = require("mongoose");
 
 async function getAllFamilyTransactions(req, res) {
@@ -9,40 +12,153 @@ async function getAllFamilyTransactions(req, res) {
     res.status(500).json({ message: "Error fetching family transactions" });
   }
 }
+
+const calculateTranParishTotal = async (req, res) => {
+  try {
+      const { year } = req.params;
+      const yearNum = parseInt(year);
+      const startDate = new Date(`${yearNum}-04-01`);
+      const endDate = new Date(`${yearNum + 1}-03-31`);
+
+      // Single aggregation pipeline to get all parishes and their totals
+      const parishTotals = await Parish.aggregate([
+          // Start with all parishes
+          {
+              $lookup: {
+                  from: 'transactions',
+                  let: { parishId: '$_id' },
+                  pipeline: [
+                      {
+                          $match: {
+                              $expr: {
+                                  $and: [
+                                      { $eq: ['$parish', '$$parishId'] },
+                                      { $eq: ['$status', 'active'] },
+                                      { $gte: ['$date', startDate] },
+                                      { $lte: ['$date', endDate] }
+                                  ]
+                              }
+                          }
+                      },
+                      {
+                          $group: {
+                              _id: null,
+                              totalAmount: { $sum: '$amountPaid' }
+                          }
+                      }
+                  ],
+                  as: 'transactionStats'
+              }
+          },
+          // Project only needed fields
+          {
+              $project: {
+                  name: 1,
+                  totalAmount: {
+                      $cond: {
+                          if: { $gt: [{ $size: '$transactionStats' }, 0] },
+                          then: { $arrayElemAt: ['$transactionStats.totalAmount', 0] },
+                          else: 0
+                      }
+                  }
+              }
+          },
+          // Sort by parish name
+          {
+              $sort: { name: 1 }
+          },
+          // Add error handling in case of null values
+          {
+              $project: {
+                  name: 1,
+                  totalAmount: { $ifNull: ['$totalAmount', 0] }
+              }
+          }
+      ]);
+
+      res.status(200).json(parishTotals);
+
+  } catch (error) {
+      console.error('Error calculating parish totals:', {
+          message: error.message,
+          stack: error.stack
+      });
+      
+      res.status(500).json({
+          message: "Error calculating parish totals",
+          error: error.message,
+          ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+      });
+  }
+};
+
 async function getTransactionsByYear(req, res) {
   try {
     const familyId = req.params.familyId;
 
-    // Aggregate transactions by year based on the 'date' field
     const transactionsByYear = await Transaction.aggregate([
       {
         $match: {
-          family: familyId, // Filter by family ID
+          family: familyId,
         },
       },
       {
         $addFields: {
-          year: { $year: { $toDate: "$date" } }, // Extract the year from the 'date' field
+          financialYear: {
+            $switch: {
+              branches: [
+                {
+                  // April to December - Current Year
+                  case: {
+                    $and: [
+                      { $gte: [{ $month: "$date" }, 4] },
+                      { $lte: [{ $month: "$date" }, 12] }
+                    ]
+                  },
+                  then: { $year: "$date" }
+                },
+                {
+                  // January to March - Previous Year
+                  case: {
+                    $and: [
+                      { $gte: [{ $month: "$date" }, 1] },
+                      { $lte: [{ $month: "$date" }, 3] }
+                    ]
+                  },
+                  then: { $subtract: [{ $year: "$date" }, 1] }
+                }
+              ],
+              default: { $year: "$date" }
+            }
+          }
         },
       },
       {
         $group: {
-          _id: "$year", // Group by year
-          totalAmountPaid: { $sum: "$amountPaid" }, // Calculate total amount paid for each year
+          _id: "$financialYear",
+          totalAmountPaid: { $sum: "$amountPaid" },
+          startYear: { $first: "$financialYear" },
         },
       },
       {
-        $sort: { _id: 1 }, // Sort by year in ascending order
+        $project: {
+          _id: 0,
+          financialYear: {
+            $concat: [
+              { $toString: "$startYear" },
+              "-",
+              { $toString: { $subtract: [{ $add: ["$startYear", 1] }, 2000] } }
+            ]
+          },
+          totalAmountPaid: 1
+        }
+      },
+      {
+        $sort: { financialYear: 1 },
       },
     ]);
 
-    // Format the response
-    const response = transactionsByYear.map((item) => ({
-      year: item._id, // The year
-      totalAmountPaid: item.totalAmountPaid, // Total amount for the year
-    }));
-
-    res.status(200).json(response);
+    res.status(200).json(transactionsByYear);
   } catch (err) {
     console.error(err);
     res.status(500).json({
@@ -53,31 +169,71 @@ async function getTransactionsByYear(req, res) {
 
 async function calculateYearlyDataTotal(req, res) {
   try {
-    // Aggregate data for all years, grouped by year
     const stats = await Transaction.aggregate([
       {
+        $addFields: {
+          financialYear: {
+            $switch: {
+              branches: [
+                {
+                  // April to December - Current Year
+                  case: {
+                    $and: [
+                      { $gte: [{ $month: "$date" }, 4] },
+                      { $lte: [{ $month: "$date" }, 12] }
+                    ]
+                  },
+                  then: { $year: "$date" }
+                },
+                {
+                  // January to March - Previous Year
+                  case: {
+                    $and: [
+                      { $gte: [{ $month: "$date" }, 1] },
+                      { $lte: [{ $month: "$date" }, 3] }
+                    ]
+                  },
+                  then: { $subtract: [{ $year: "$date" }, 1] }
+                }
+              ],
+              default: { $year: "$date" }
+            }
+          }
+        }
+      },
+      {
         $group: {
-          _id: { year: { $year: { $toDate: "$date" } } }, // Group by year extracted from the 'date' field
-          totalAmount: { $sum: "$amountPaid" }, // Sum of all amountPaid for each year
-          totalParticipants: { $sum: 1 }, // Count the total number of participants (assuming each transaction represents one participant)
-        },
+          _id: "$financialYear",
+          totalAmount: { $sum: "$amountPaid" },
+          totalParticipants: { $sum: 1 },
+          startYear: { $first: "$financialYear" }
+        }
       },
       {
         $project: {
-          _id: 0, // Remove _id from the result
-          year: "$_id.year", // Include the year in the result
-          totalAmount: 1, // Include totalAmount
-          totalParticipants: 1, // Include totalParticipants
-        },
+          _id: 0,
+          financialYear: {
+            $concat: [
+              { $toString: "$startYear" },
+              "-",
+              { $toString: { $subtract: [{ $add: ["$startYear", 1] }, 2000] } }
+            ]
+          },
+          year: "$startYear",
+          totalAmount: 1,
+          totalParticipants: 1
+        }
       },
-      { $sort: { year: 1 } }, // Sort by year (ascending)
+      {
+        $sort: { year: 1 }
+      }
     ]);
 
     if (!stats || stats.length === 0) {
       return res.status(404).json({ message: "No data found." });
     }
 
-    res.status(200).json(stats); // Return the aggregated stats by year
+    res.status(200).json(stats);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "An error occurred while calculating yearly totals." });
@@ -99,7 +255,11 @@ async function calculateYearlyData(req, res) {
       {
         $match: {
           // Match only transactions for the selected year
-          $expr: { $eq: [{ $year: { $toDate: "$date" } }, parsedYear] },
+          date: {
+            $gte: new Date(`${parsedYear}-04-01`),  // Start of financial year (April 1st)
+            $lte: new Date(`${parsedYear + 1}-03-31`)  // End of financial year (March 31st next year)
+          },
+          status: "active"
         },
       },
       {
@@ -140,8 +300,6 @@ async function calculateYearlyData(req, res) {
 }
 
 
-
-
 async function calculateYearlyDataByForane(req, res) {
   try {
     const { year, foraneId } = req.params;
@@ -163,7 +321,10 @@ async function calculateYearlyDataByForane(req, res) {
       {
         $match: {
           forane: new mongoose.Types.ObjectId(foraneId), // Using 'new' to correctly instantiate ObjectId
-          $expr: { $eq: [{ $year: { $toDate: "$date" } }, parsedYear] },
+          date: {
+            $gte: new Date(`${parsedYear}-04-01`),  // Start of financial year (April 1st)
+            $lte: new Date(`${parsedYear + 1}-03-31`)  // End of financial year (March 31st next year)
+          }
         },
       },
       {
@@ -205,7 +366,10 @@ async function getLatestTransaction(req, res) {
 
     const transaction = await Transaction.findOne({
       person: req.params.personid,
-      $expr: { $eq: [{ $year: "$createdAt" }, currentYear] },
+      date: {
+        $gte: new Date(`${currentYear}-04-01`),  // Start of financial year (April 1st)
+        $lte: new Date(`${currentYear + 1}-03-31`)  // End of financial year (March 31st next year)
+      }
     })
       .sort({ createdAt: -1 }) // Sort by createdAt in descending order
       .exec();
@@ -316,8 +480,8 @@ async function getPersonByYear(req, res) {
     const transactions = await Transaction.find({ 
       person: personid, 
       date: { 
-        $gte: new Date(`${year}-01-01`), 
-        $lte: new Date(`${year}-12-31`) 
+        $gte: new Date(`${year}-04-01`), 
+        $lte: new Date(`${year+1}-03-31`) 
       }
     });
     
@@ -364,9 +528,10 @@ async function transferTransaction(req, res) {
     const existingTransaction = await Transaction.findOne({
       person: fromPerson,
       date: {
-        $gte: new Date(new Date().getFullYear(), 0, 1),
-        $lte: new Date(new Date().getFullYear(), 11, 31)
+        $gte: new Date(new Date().getFullYear(), 4, 1),
+        $lte: new Date(new Date().getFullYear(), 3, 31)
       }
+      
     });
 
     if (!existingTransaction) {
@@ -445,6 +610,243 @@ async function updateTransaction(req, res) {
     res.status(500).json({ message: "Error updating transaction." });
   }
 }
+// Add to transactionController.js
+const getKoottaymaWiseTitheInfo = async (req, res) => {
+  try {
+    const { parishId } = req.params;
+    const currentYear = new Date().getFullYear()-1;
+    const startDate = new Date(`${currentYear}-04-01`);
+    const endDate = new Date(`${currentYear + 1}-03-31`);
+
+    const pipeline = [
+      // Start with koottaymas
+      {
+        $match: {
+          parish: new mongoose.Types.ObjectId(parishId)
+        }
+      },
+      // Lookup families in each koottayma
+      {
+        $lookup: {
+          from: 'families',
+          localField: '_id',
+          foreignField: 'koottayma',
+          as: 'families'
+        }
+      },
+      // Unwind families to process each
+      {
+        $unwind: {
+          path: '$families',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      // Lookup head of each family
+      {
+        $lookup: {
+          from: 'people',
+          localField: 'families.head',
+          foreignField: '_id',
+          as: 'headInfo'
+        }
+      },
+      {
+        $unwind: {
+          path: '$headInfo',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      // Lookup transactions for each family
+      {
+        $lookup: {
+          from: 'transactions',
+          let: { 
+            familyId: { $toString: '$families.id' },
+            startDate: startDate,
+            endDate: endDate
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$family', '$$familyId'] },
+                    { $gte: ['$date', '$$startDate'] },
+                    { $lte: ['$date', '$$endDate'] }
+                  ]
+                }
+              }
+            },
+            {
+              $lookup: {
+                from: 'people',
+                localField: 'person',
+                foreignField: '_id',
+                as: 'memberInfo'
+              }
+            },
+            {
+              $unwind: {
+                path: '$memberInfo',
+                preserveNullAndEmptyArrays: true
+              }
+            }
+          ],
+          as: 'transactions'
+        }
+      },
+      // Group back to family level
+      {
+        $group: {
+          _id: {
+            koottaymaId: '$_id',
+            familyId: '$families.id'
+          },
+          koottaymaName: { $first: '$name' },
+          houseName: { $first: '$families.name' },
+          phone: { $first: '$families.phone' },
+          headName: { $first: '$headInfo.name' },
+          members: {
+            $first: {
+              $map: {
+                input: '$transactions',
+                as: 'txn',
+                in: {
+                  memberName: '$$txn.memberInfo.name',
+                  amount: '$$txn.amountPaid'
+                }
+              }
+            }
+          },
+          totalFamilyAmount: { 
+            $sum: '$transactions.amountPaid'
+          }
+        }
+      },
+      // Group by koottayma
+      {
+        $group: {
+          _id: '$_id.koottaymaId',
+          name: { $first: '$koottaymaName' },
+          families: {
+            $push: {
+              familyId: '$_id.familyId',
+              houseName: '$houseName',
+              phone: '$phone',
+              headName: { $ifNull: ['$headName', 'No Head Assigned'] },
+              members: { $ifNull: ['$members', []] },
+              totalAmount: { $ifNull: ['$totalFamilyAmount', 0] }
+            }
+          },
+          totalAmount: { $sum: { $ifNull: ['$totalFamilyAmount', 0] } }
+        }
+      },
+      // Sort by koottayma name
+      {
+        $sort: { name: 1 }
+      }
+    ];
+
+    const titheInfo = await koottaymas.aggregate(pipeline);
+
+    if (!titheInfo || titheInfo.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    res.status(200).json(titheInfo);
+
+  } catch (error) {
+    console.error('Error in getKoottaymaWiseTitheInfo:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+const getConsolidatedTitheByKoottayma = async (req, res) => {
+  try {
+    const { parishId } = req.params;
+    const currentYear = new Date().getFullYear()-1;
+    const startDate = new Date(`${currentYear}-04-01`);
+    const endDate = new Date(`${currentYear + 1}-03-31`);
+
+    // First get all koottaymas for the parish
+    const consolidatedTithe = await koottaymas.aggregate([
+      // Start with all koottaymas for this parish
+      {
+        $match: {
+          parish: new mongoose.Types.ObjectId(parishId)
+        }
+      },
+      // Lookup transactions for each koottayma
+      {
+        $lookup: {
+          from: 'families',
+          localField: '_id',
+          foreignField: 'koottayma',
+          as: 'families'
+        }
+      },
+      // Unwind families array to lookup transactions
+      {
+        $unwind: {
+          path: '$families',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      // Convert family id to number for transaction lookup
+      {
+        $addFields: {
+          'families.idNum': { $toString: '$families.id' }
+        }
+      },
+      // Lookup transactions for each family
+      {
+        $lookup: {
+          from: 'transactions',
+          let: { 
+            familyId: '$families.idNum',
+            startDate: startDate,
+            endDate: endDate
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$family', '$$familyId'] },
+                    { $gte: ['$date', '$$startDate'] },
+                    { $lte: ['$date', '$$endDate'] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'transactions'
+        }
+      },
+      // Group back to koottayma level
+      {
+        $group: {
+          _id: '$_id',
+          name: { $first: '$name' },
+          amount: {
+            $sum: {
+              $sum: '$transactions.amountPaid'
+            }
+          }
+        }
+      },
+      // Sort by name
+      {
+        $sort: { name: 1 }
+      }
+    ]);
+
+    res.status(200).json(consolidatedTithe);
+  } catch (error) {
+    console.error('Error in getConsolidatedTitheByKoottayma:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 
 module.exports = {
   createNewTransaction,
@@ -461,4 +863,7 @@ module.exports = {
   getPersonByYear,
   getAllPersonTransactions,
   transferTransaction,
+  calculateTranParishTotal,
+  getKoottaymaWiseTitheInfo,
+  getConsolidatedTitheByKoottayma,
 };

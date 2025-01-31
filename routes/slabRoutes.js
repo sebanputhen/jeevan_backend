@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const path = require('path');
-const slabController = require(path.resolve(__dirname, '../controllers/SlabController'));
+const slabController1 = require('../controllers/slabController');
 
-router.get('/:year', slabController.getSlabs);
-router.post('/', slabController.saveSlabs);  
+router.get('/:year', slabController1.getSlabs);
+router.post('/', slabController1.saveSlabs);  
 
 module.exports = router;
